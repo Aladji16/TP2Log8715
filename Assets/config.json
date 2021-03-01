@@ -1,0 +1,1 @@
+{"numberOfShapesToSpawn":250,"headless":false,"_systemsEnabled":{"keys":["SpawnSystem","CircleCollisionDetectionSystem","SizeReduceSystem","WallCollisionDetectionSystem","BounceBackSystem","PositionUpdateSystem","DisplayUpdateSystem","EndEventSystem","DeoverlapSystem","ColorDecisionSystem"],"values":[true,true,true,true,true,true,true,true,true,true]}}
