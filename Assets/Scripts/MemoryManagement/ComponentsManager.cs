@@ -9,13 +9,25 @@ using InnerType = System.Collections.Generic.Dictionary<uint, IComponent>;
 using AllComponents = System.Collections.Generic.Dictionary<uint, System.Collections.Generic.Dictionary<uint, IComponent>>;
 #else
 using InnerType = Pool;//approche pool
-using AllComponents = System.Collections.Generic.Dictionary<uint, Pool>;
+// using AllComponents = System.Collections.Generic.Dictionary<uint, Pool>;
+
 #endif
 
 // Appeler GetHashCode sur un Type est couteux. Cette classe sert a precalculer le hashcode
 public static class TypeRegistry<T> where T : IComponent
 {
-    public static uint typeID = (uint)Mathf.Abs(default(T).GetRandomNumber()) % ComponentsManager.maxEntities;
+    // public static uint typeID = (uint)Mathf.Abs(default(T).GetRandomNumber()) % ComponentsManager.maxEntities;
+
+    public static bool isAssigned = false;
+
+    public static int tab_id = -1;
+
+    public static void assignNumber()
+    {
+      ComponentsManager.Instance.increaseId();
+      tab_id = ComponentsManager.Instance.getId();
+      isAssigned = true;
+    }
 }
 
 public class Singleton<V> where V : new()
@@ -39,9 +51,23 @@ public class Singleton<V> where V : new()
 
 internal class ComponentsManager : Singleton<ComponentsManager>
 {
-    private AllComponents _allComponents = new AllComponents();
+    // private AllComponents _allComponents = new AllComponents();
+    private InnerType[] _allComponents = new InnerType[8]; //8 types de components
+
 
     public const int maxEntities = 2000;
+
+    private int id = -1; //id pour chaque type de component
+
+    public void increaseId()
+    {
+      id += 1;
+    }
+
+    public int getId()
+    {
+      return id;
+    }
 
     public void DebugPrint()
     {
@@ -75,41 +101,44 @@ internal class ComponentsManager : Singleton<ComponentsManager>
         //    //_allComponents[TypeRegistry<T>.typeID] = new Dictionary<uint, IComponent>();
         //    _allComponents[TypeRegistry<T>.typeID] = new InnerType();
         //}
-        //_allComponents[TypeRegistry<T>.typeID][entityID] = component;  
+        //_allComponents[TypeRegistry<T>.typeID][entityID] = component;
 
-        if (!_allComponents.ContainsKey(TypeRegistry<T>.typeID))
+
+        if (! TypeRegistry<T>.isAssigned)
         {
             //si le pool de ce component n'existe pas encore, creer un nouveau
-            _allComponents[TypeRegistry<T>.typeID] = new InnerType(ECSManager.Instance.Config.numberOfShapesToSpawn);
+            TypeRegistry<T>.assignNumber();
+            _allComponents[TypeRegistry<T>.tab_id] = new InnerType(ECSManager.Instance.Config.numberOfShapesToSpawn);
         }
-       
-        _allComponents[TypeRegistry<T>.typeID].setComponent(entityID, component);
-       
+
+        _allComponents[TypeRegistry<T>.tab_id].setComponent(entityID, component);
+
+
 
     }
     public void RemoveComponent<T>(EntityComponent entityID) where T : IComponent
     {
         //_allComponents[TypeRegistry<T>.typeID].Remove(entityID);
 
-        _allComponents[TypeRegistry<T>.typeID].remove(entityID);
+        _allComponents[TypeRegistry<T>.tab_id].remove(entityID);
     }
     public T GetComponent<T>(EntityComponent entityID) where T : IComponent
     {
         //return (T)_allComponents[TypeRegistry<T>.typeID][entityID];
-        return (T)_allComponents[TypeRegistry<T>.typeID].getComponent(entityID);
+        return (T)_allComponents[TypeRegistry<T>.tab_id].getComponent(entityID);
     }
     public bool TryGetComponent<T>(EntityComponent entityID, out T component) where T : IComponent
     {
-        if (_allComponents.ContainsKey(TypeRegistry<T>.typeID))
+        if (TypeRegistry<T>.isAssigned)
         {
             //if (_allComponents[TypeRegistry<T>.typeID].ContainsKey(entityID))
             //{
             //    component = (T)_allComponents[TypeRegistry<T>.typeID][entityID];
             //    return true;
             //}
-            if (_allComponents[TypeRegistry<T>.typeID].hasEntity(entityID))
+            if (_allComponents[TypeRegistry<T>.tab_id].hasEntity(entityID))
             {
-                component = (T)_allComponents[TypeRegistry<T>.typeID].getComponent(entityID);
+                component = (T)_allComponents[TypeRegistry<T>.tab_id].getComponent(entityID);
                 return true;
             }
         }
@@ -120,18 +149,29 @@ internal class ComponentsManager : Singleton<ComponentsManager>
     public bool EntityContains<T>(EntityComponent entity) where T : IComponent
     {
         //return _allComponents[TypeRegistry<T>.typeID].ContainsKey(entity);
-        return _allComponents[TypeRegistry<T>.typeID].hasEntity(entity);
+        return _allComponents[TypeRegistry<T>.tab_id].hasEntity(entity);
     }
 
     public void ClearComponents<T>() where T : IComponent
     {
-        if (!_allComponents.ContainsKey(TypeRegistry<T>.typeID))
+        // if (!_allComponents.ContainsKey(TypeRegistry<T>.typeID))
+        // {
+        //     _allComponents.Add(TypeRegistry<T>.typeID, new InnerType(ECSManager.Instance.Config.numberOfShapesToSpawn));
+        // }
+        // else
+        // {
+        //     _allComponents[TypeRegistry<T>.typeID] = new InnerType(ECSManager.Instance.Config.numberOfShapesToSpawn);
+        // }
+
+        if (!(TypeRegistry<T>.isAssigned))
         {
-            _allComponents.Add(TypeRegistry<T>.typeID, new InnerType(ECSManager.Instance.Config.numberOfShapesToSpawn));
+
+            TypeRegistry<T>.assignNumber();
+            _allComponents[TypeRegistry<T>.tab_id] = new InnerType(ECSManager.Instance.Config.numberOfShapesToSpawn);
         }
         else
         {
-            _allComponents[TypeRegistry<T>.typeID] = new InnerType(ECSManager.Instance.Config.numberOfShapesToSpawn);
+            _allComponents[TypeRegistry<T>.tab_id] = new InnerType(ECSManager.Instance.Config.numberOfShapesToSpawn);
         }
     }
 
@@ -147,8 +187,8 @@ internal class ComponentsManager : Singleton<ComponentsManager>
             }
             lambda(entity, (T1)_allComponents[TypeRegistry<T1>.typeID][entity]);
         }*/
-        IComponent[] allEntities = _allComponents[TypeRegistry<EntityComponent>.typeID].poolArray;
-        IComponent[] t1_poolArray = _allComponents[TypeRegistry<T1>.typeID].poolArray;
+        IComponent[] allEntities = _allComponents[TypeRegistry<EntityComponent>.tab_id].poolArray;
+        IComponent[] t1_poolArray = _allComponents[TypeRegistry<T1>.tab_id].poolArray;
         for (uint i = 0; i < ECSManager.Instance.Config.numberOfShapesToSpawn; i++)
         {
             if (t1_poolArray[i] == null)
@@ -171,10 +211,10 @@ internal class ComponentsManager : Singleton<ComponentsManager>
             }
             lambda(entity, (T1)_allComponents[TypeRegistry<T1>.typeID][entity], (T2)_allComponents[TypeRegistry<T2>.typeID][entity]);
         } */
-        IComponent[] allEntities = _allComponents[TypeRegistry<EntityComponent>.typeID].poolArray;
-        IComponent[] t1_poolArray = _allComponents[TypeRegistry<T1>.typeID].poolArray;
-        IComponent[] t2_poolArray = _allComponents[TypeRegistry<T2>.typeID].poolArray;
-        
+        IComponent[] allEntities = _allComponents[TypeRegistry<EntityComponent>.tab_id].poolArray;
+        IComponent[] t1_poolArray = _allComponents[TypeRegistry<T1>.tab_id].poolArray;
+        IComponent[] t2_poolArray = _allComponents[TypeRegistry<T2>.tab_id].poolArray;
+
         for (uint i = 0; i < ECSManager.Instance.Config.numberOfShapesToSpawn; i++)
         {
             if (t1_poolArray[i] == null || t2_poolArray[i] == null)
@@ -200,10 +240,10 @@ internal class ComponentsManager : Singleton<ComponentsManager>
             }
             lambda(entity, (T1)_allComponents[TypeRegistry<T1>.typeID][entity], (T2)_allComponents[TypeRegistry<T2>.typeID][entity], (T3)_allComponents[TypeRegistry<T3>.typeID][entity]);
         } */
-        IComponent[] allEntities = _allComponents[TypeRegistry<EntityComponent>.typeID].poolArray;
-        IComponent[] t1_poolArray = _allComponents[TypeRegistry<T1>.typeID].poolArray;
-        IComponent[] t2_poolArray = _allComponents[TypeRegistry<T2>.typeID].poolArray;
-        IComponent[] t3_poolArray = _allComponents[TypeRegistry<T3>.typeID].poolArray;
+        IComponent[] allEntities = _allComponents[TypeRegistry<EntityComponent>.tab_id].poolArray;
+        IComponent[] t1_poolArray = _allComponents[TypeRegistry<T1>.tab_id].poolArray;
+        IComponent[] t2_poolArray = _allComponents[TypeRegistry<T2>.tab_id].poolArray;
+        IComponent[] t3_poolArray = _allComponents[TypeRegistry<T3>.tab_id].poolArray;
         for (uint i = 0; i < ECSManager.Instance.Config.numberOfShapesToSpawn; i++)
         {
             if (t1_poolArray[i] == null || t2_poolArray[i] == null || t3_poolArray[i] == null)
@@ -230,11 +270,11 @@ internal class ComponentsManager : Singleton<ComponentsManager>
            }
            lambda(entity, (T1)_allComponents[TypeRegistry<T1>.typeID][entity], (T2)_allComponents[TypeRegistry<T2>.typeID][entity], (T3)_allComponents[TypeRegistry<T3>.typeID][entity], (T4)_allComponents[TypeRegistry<T4>.typeID][entity]);
        } */
-        IComponent[] allEntities = _allComponents[TypeRegistry<EntityComponent>.typeID].poolArray;
-        IComponent[] t1_poolArray = _allComponents[TypeRegistry<T1>.typeID].poolArray;
-        IComponent[] t2_poolArray = _allComponents[TypeRegistry<T2>.typeID].poolArray;
-        IComponent[] t3_poolArray = _allComponents[TypeRegistry<T3>.typeID].poolArray;
-        IComponent[] t4_poolArray = _allComponents[TypeRegistry<T4>.typeID].poolArray;
+        IComponent[] allEntities = _allComponents[TypeRegistry<EntityComponent>.tab_id].poolArray;
+        IComponent[] t1_poolArray = _allComponents[TypeRegistry<T1>.tab_id].poolArray;
+        IComponent[] t2_poolArray = _allComponents[TypeRegistry<T2>.tab_id].poolArray;
+        IComponent[] t3_poolArray = _allComponents[TypeRegistry<T3>.tab_id].poolArray;
+        IComponent[] t4_poolArray = _allComponents[TypeRegistry<T4>.tab_id].poolArray;
 
 
         for (uint i = 0; i < ECSManager.Instance.Config.numberOfShapesToSpawn; i++)
@@ -247,7 +287,7 @@ internal class ComponentsManager : Singleton<ComponentsManager>
         }
     }
 
-    public AllComponents DebugGetAllComponents()
+    public InnerType[] DebugGetAllComponents()
     {
         return _allComponents;
     }
